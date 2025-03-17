@@ -1,92 +1,224 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useAuth } from '../context/AuthContext';
 
 const Navigation = () => {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const pathname = usePathname();
+  const { user } = useAuth();
 
-  const navItems = [
-    { href: '/', label: 'Dashboard' },
-    { href: '/plants', label: 'Plants' },
-    { href: '/vegetable-patch', label: 'Vegetable Planner' },
-    { href: '/calendar', label: 'Calendar' },
-    { href: '/resources', label: 'Resources' },
-  ];
+  const toggleMenu = () => {
+    setIsMenuOpen(!isMenuOpen);
+  };
+
+  const closeMenu = () => {
+    setIsMenuOpen(false);
+  };
+
+  const isActive = (path: string) => {
+    return pathname === path;
+  };
 
   return (
-    <nav className="bg-white shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
-          <div className="flex">
-            <div className="flex-shrink-0 flex items-center">
-              <span className="text-xl font-bold text-green-600">Garden Manager</span>
-            </div>
-            <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-              {navItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`${
-                    pathname === item.href
-                      ? 'border-green-500 text-gray-900'
-                      : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                  } inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium`}
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </div>
+    <nav className="bg-green-600 text-white">
+      <div className="container mx-auto px-4">
+        <div className="flex justify-between items-center h-16">
+          <div className="flex items-center">
+            <Link href="/" className="text-xl font-bold">
+              Garden Management
+            </Link>
           </div>
-          
-          {/* Mobile menu button */}
-          <div className="sm:hidden flex items-center">
-            <button
-              type="button"
-              className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-green-500"
-              aria-controls="mobile-menu"
-              aria-expanded="false"
+
+          {/* Desktop Navigation */}
+          <div className="hidden md:flex space-x-4">
+            <Link
+              href="/"
+              className={`px-3 py-2 rounded-md ${
+                isActive('/') ? 'bg-green-700' : 'hover:bg-green-700'
+              }`}
             >
-              <span className="sr-only">Open main menu</span>
-              {/* Icon for menu */}
+              Dashboard
+            </Link>
+            <Link
+              href="/plants"
+              className={`px-3 py-2 rounded-md ${
+                isActive('/plants') ? 'bg-green-700' : 'hover:bg-green-700'
+              }`}
+            >
+              Plants
+            </Link>
+            <Link
+              href="/vegetable-patch"
+              className={`px-3 py-2 rounded-md ${
+                isActive('/vegetable-patch') ? 'bg-green-700' : 'hover:bg-green-700'
+              }`}
+            >
+              Vegetable Planner
+            </Link>
+            <Link
+              href="/activities"
+              className={`px-3 py-2 rounded-md ${
+                isActive('/activities') ? 'bg-green-700' : 'hover:bg-green-700'
+              }`}
+            >
+              Activities
+            </Link>
+            <Link
+              href="/calendar"
+              className={`px-3 py-2 rounded-md ${
+                isActive('/calendar') ? 'bg-green-700' : 'hover:bg-green-700'
+              }`}
+            >
+              Calendar
+            </Link>
+            <Link
+              href="/resources"
+              className={`px-3 py-2 rounded-md ${
+                isActive('/resources') ? 'bg-green-700' : 'hover:bg-green-700'
+              }`}
+            >
+              Resources
+            </Link>
+            {user ? (
+              <Link
+                href="/profile"
+                className={`px-3 py-2 rounded-md ${
+                  isActive('/profile') ? 'bg-green-700' : 'hover:bg-green-700'
+                }`}
+              >
+                Profile
+              </Link>
+            ) : (
+              <Link
+                href="/auth"
+                className={`px-3 py-2 rounded-md ${
+                  isActive('/auth') ? 'bg-green-700' : 'hover:bg-green-700'
+                }`}
+              >
+                Sign In
+              </Link>
+            )}
+          </div>
+
+          {/* Mobile Navigation Button */}
+          <div className="md:hidden">
+            <button
+              onClick={toggleMenu}
+              className="text-white focus:outline-none"
+              aria-label="Toggle menu"
+            >
               <svg
                 className="h-6 w-6"
-                xmlns="http://www.w3.org/2000/svg"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
+                {isMenuOpen ? (
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                ) : (
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 6h16M4 12h16M4 18h16"
+                  />
+                )}
               </svg>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Mobile menu */}
-      <div className="sm:hidden" id="mobile-menu">
-        <div className="pt-2 pb-3 space-y-1">
-          {navItems.map((item) => (
+      {/* Mobile Navigation Menu */}
+      {isMenuOpen && (
+        <div className="md:hidden">
+          <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
             <Link
-              key={item.href}
-              href={item.href}
-              className={`${
-                pathname === item.href
-                  ? 'bg-green-50 border-green-500 text-green-700'
-                  : 'border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700'
-              } block pl-3 pr-4 py-2 border-l-4 text-base font-medium`}
+              href="/"
+              className={`block px-3 py-2 rounded-md ${
+                isActive('/') ? 'bg-green-700' : 'hover:bg-green-700'
+              }`}
+              onClick={closeMenu}
             >
-              {item.label}
+              Dashboard
             </Link>
-          ))}
+            <Link
+              href="/plants"
+              className={`block px-3 py-2 rounded-md ${
+                isActive('/plants') ? 'bg-green-700' : 'hover:bg-green-700'
+              }`}
+              onClick={closeMenu}
+            >
+              Plants
+            </Link>
+            <Link
+              href="/vegetable-patch"
+              className={`block px-3 py-2 rounded-md ${
+                isActive('/vegetable-patch') ? 'bg-green-700' : 'hover:bg-green-700'
+              }`}
+              onClick={closeMenu}
+            >
+              Vegetable Planner
+            </Link>
+            <Link
+              href="/activities"
+              className={`block px-3 py-2 rounded-md ${
+                isActive('/activities') ? 'bg-green-700' : 'hover:bg-green-700'
+              }`}
+              onClick={closeMenu}
+            >
+              Activities
+            </Link>
+            <Link
+              href="/calendar"
+              className={`block px-3 py-2 rounded-md ${
+                isActive('/calendar') ? 'bg-green-700' : 'hover:bg-green-700'
+              }`}
+              onClick={closeMenu}
+            >
+              Calendar
+            </Link>
+            <Link
+              href="/resources"
+              className={`block px-3 py-2 rounded-md ${
+                isActive('/resources') ? 'bg-green-700' : 'hover:bg-green-700'
+              }`}
+              onClick={closeMenu}
+            >
+              Resources
+            </Link>
+            {user ? (
+              <Link
+                href="/profile"
+                className={`block px-3 py-2 rounded-md ${
+                  isActive('/profile') ? 'bg-green-700' : 'hover:bg-green-700'
+                }`}
+                onClick={closeMenu}
+              >
+                Profile
+              </Link>
+            ) : (
+              <Link
+                href="/auth"
+                className={`block px-3 py-2 rounded-md ${
+                  isActive('/auth') ? 'bg-green-700' : 'hover:bg-green-700'
+                }`}
+                onClick={closeMenu}
+              >
+                Sign In
+              </Link>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </nav>
   );
 };

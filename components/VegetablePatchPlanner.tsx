@@ -1,306 +1,257 @@
 'use client';
 
-import React, { useState } from 'react';
-
-interface Plant {
-  id: string;
-  name: string;
-  color: string;
-  spacing: number;
-  plantingTime: string;
-  harvestTime: string;
-}
-
-interface GridCell {
-  plantId: string | null;
-  plantedDate: string | null;
-}
-
-interface GardenLayout {
-  id: string;
-  name: string;
-  rows: number;
-  columns: number;
-  grid: GridCell[][];
-}
-
-const plantTypes: Plant[] = [
-  { 
-    id: 'tomato',
-    name: 'Tomato',
-    color: 'bg-red-400',
-    spacing: 2,
-    plantingTime: 'Spring',
-    harvestTime: '70-80 days'
-  },
-  { 
-    id: 'lettuce',
-    name: 'Lettuce',
-    color: 'bg-green-300',
-    spacing: 1,
-    plantingTime: 'Spring/Fall',
-    harvestTime: '45-60 days'
-  },
-  { 
-    id: 'pepper',
-    name: 'Pepper',
-    color: 'bg-yellow-400',
-    spacing: 1.5,
-    plantingTime: 'Spring',
-    harvestTime: '60-90 days'
-  },
-  { 
-    id: 'carrot',
-    name: 'Carrot',
-    color: 'bg-orange-400',
-    spacing: 0.5,
-    plantingTime: 'Spring/Fall',
-    harvestTime: '70-80 days'
-  },
-  { 
-    id: 'cucumber',
-    name: 'Cucumber',
-    color: 'bg-green-500',
-    spacing: 1.5,
-    plantingTime: 'Spring',
-    harvestTime: '50-70 days'
-  }
-];
-
-const createEmptyGrid = (rows: number, columns: number): GridCell[][] => {
-  return Array(rows).fill(null).map(() => 
-    Array(columns).fill(null).map(() => ({ plantId: null, plantedDate: null }))
-  );
-};
+import React, { useState, useEffect } from 'react';
+import { usePlants } from '../context/PlantContext';
+import { useGardenLayouts } from '../context/GardenLayoutContext';
+import { Plant, GridCell } from '../lib/types';
 
 const VegetablePatchPlanner = () => {
-  const [selectedPlant, setSelectedPlant] = useState<string | null>(null);
-  const [hoveredCell, setHoveredCell] = useState<{x: number, y: number} | null>(null);
-  const [layouts, setLayouts] = useState<GardenLayout[]>([
-    {
-      id: '1',
-      name: 'Main Garden',
-      rows: 8,
-      columns: 12,
-      grid: createEmptyGrid(8, 12)
-    }
-  ]);
-  const [selectedLayout, setSelectedLayout] = useState<string>('1');
-  const [showNewLayoutForm, setShowNewLayoutForm] = useState(false);
+  const { plants, loading: plantsLoading } = usePlants();
+  const { 
+    layouts, 
+    currentLayout, 
+    loading: layoutsLoading, 
+    addLayout, 
+    updateCell, 
+    setCurrentLayout 
+  } = useGardenLayouts();
+  
+  const [selectedPlant, setSelectedPlant] = useState<Plant | null>(null);
   const [newLayoutName, setNewLayoutName] = useState('');
-  const [newLayoutRows, setNewLayoutRows] = useState('8');
-  const [newLayoutColumns, setNewLayoutColumns] = useState('12');
+  const [showNewLayoutForm, setShowNewLayoutForm] = useState(false);
+  const [gridSize, setGridSize] = useState({ rows: 10, columns: 10 });
 
-  const currentLayout = layouts.find(l => l.id === selectedLayout)!;
+  // Filter for vegetable plants only
+  const vegetablePlants = plants.filter(plant => plant.type === 'vegetable');
 
-  const handleCellClick = (x: number, y: number) => {
-    if (!selectedPlant) return;
-
-    const newLayouts = layouts.map(layout => {
-      if (layout.id === selectedLayout) {
-        const newGrid = [...layout.grid];
-        const currentCell = newGrid[y][x];
-
-        if (currentCell.plantId === selectedPlant) {
-          newGrid[y][x] = { plantId: null, plantedDate: null };
-        } else {
-          newGrid[y][x] = {
-            plantId: selectedPlant,
-            plantedDate: new Date().toISOString().split('T')[0]
-          };
-        }
-
-        return { ...layout, grid: newGrid };
-      }
-      return layout;
-    });
-
-    setLayouts(newLayouts);
+  const handlePlantSelect = (plant: Plant | null) => {
+    setSelectedPlant(plant);
   };
 
-  const handleCreateNewLayout = (e: React.FormEvent) => {
-    e.preventDefault();
-    const rows = parseInt(newLayoutRows);
-    const columns = parseInt(newLayoutColumns);
+  const handleCellClick = async (x: number, y: number) => {
+    if (!currentLayout) return;
     
-    if (rows > 0 && columns > 0 && newLayoutName.trim()) {
-      const newLayout: GardenLayout = {
-        id: Date.now().toString(),
-        name: newLayoutName.trim(),
-        rows,
-        columns,
-        grid: createEmptyGrid(rows, columns)
-      };
+    const cell: GridCell = selectedPlant 
+      ? { plantId: selectedPlant.id, plantedDate: new Date().toISOString().split('T')[0] }
+      : { plantId: null, plantedDate: null };
+    
+    await updateCell(currentLayout.id, x, y, cell);
+  };
 
-      setLayouts([...layouts, newLayout]);
-      setSelectedLayout(newLayout.id);
-      setShowNewLayoutForm(false);
-      setNewLayoutName('');
-      setNewLayoutRows('8');
-      setNewLayoutColumns('12');
+  const handleLayoutSelect = (layoutId: string) => {
+    const layout = layouts.find(l => l.id === layoutId);
+    if (layout) {
+      setCurrentLayout(layout);
     }
   };
 
-  const getPlantById = (id: string): Plant | undefined => {
-    return plantTypes.find(plant => plant.id === id);
+  const handleCreateLayout = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!newLayoutName.trim()) return;
+    
+    // Create empty grid based on selected size
+    const grid = Array(gridSize.rows).fill(null).map(() => 
+      Array(gridSize.columns).fill(null).map(() => ({ plantId: null, plantedDate: null }))
+    );
+    
+    await addLayout({
+      name: newLayoutName,
+      rows: gridSize.rows,
+      columns: gridSize.columns,
+      grid
+    });
+    
+    // Reset form
+    setNewLayoutName('');
+    setShowNewLayoutForm(false);
   };
+
+  const getPlantForCell = (cell: GridCell) => {
+    if (!cell || !cell.plantId) return null;
+    return plants.find(p => p.id === cell.plantId);
+  };
+
+  if (plantsLoading || layoutsLoading) {
+    return <div className="p-4 text-center">Loading garden planner...</div>;
+  }
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold">Vegetable Patch Planner</h2>
-        <button
-          onClick={() => setShowNewLayoutForm(true)}
-          className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors"
-        >
-          Create New Layout
-        </button>
-      </div>
-
-      {/* Layout Selection */}
-      <div className="mb-6">
-        <label className="block text-sm font-medium text-gray-700 mb-2">Select Layout:</label>
-        <div className="flex gap-2">
-          {layouts.map((layout) => (
-            <button
-              key={layout.id}
-              onClick={() => setSelectedLayout(layout.id)}
-              className={`px-4 py-2 rounded-lg transition-colors ${
-                selectedLayout === layout.id
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-              }`}
-            >
-              {layout.name} ({layout.rows}x{layout.columns})
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* New Layout Form */}
-      {showNewLayoutForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-lg w-96">
-            <h3 className="text-lg font-semibold mb-4">Create New Layout</h3>
-            <form onSubmit={handleCreateNewLayout}>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Layout Name:</label>
-                <input
-                  type="text"
-                  value={newLayoutName}
-                  onChange={(e) => setNewLayoutName(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-lg"
-                  required
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Rows:</label>
-                  <input
-                    type="number"
-                    value={newLayoutRows}
-                    onChange={(e) => setNewLayoutRows(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-lg"
-                    min="1"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Columns:</label>
-                  <input
-                    type="number"
-                    value={newLayoutColumns}
-                    onChange={(e) => setNewLayoutColumns(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-lg"
-                    min="1"
-                    required
-                  />
-                </div>
-              </div>
-              <div className="flex justify-end gap-2">
+    <div className="container mx-auto p-4">
+      <h1 className="text-2xl font-bold mb-6">Vegetable Patch Planner</h1>
+      
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Left sidebar - Plant selection */}
+        <div className="lg:col-span-1 bg-white p-4 rounded-lg shadow">
+          <h2 className="text-lg font-semibold mb-4">Select a Plant</h2>
+          
+          {vegetablePlants.length === 0 ? (
+            <p className="text-gray-500">No vegetable plants available. Add some from the Plants page.</p>
+          ) : (
+            <div className="space-y-2">
+              <button
+                className={`block w-full text-left p-2 rounded ${!selectedPlant ? 'bg-green-100 border border-green-500' : 'hover:bg-gray-100'}`}
+                onClick={() => handlePlantSelect(null)}
+              >
+                Eraser (Remove Plant)
+              </button>
+              
+              {vegetablePlants.map(plant => (
                 <button
-                  type="button"
-                  onClick={() => setShowNewLayoutForm(false)}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                  key={plant.id}
+                  className={`block w-full text-left p-2 rounded ${selectedPlant?.id === plant.id ? 'bg-green-100 border border-green-500' : 'hover:bg-gray-100'}`}
+                  onClick={() => handlePlantSelect(plant)}
                 >
-                  Cancel
+                  <span className={`inline-block w-4 h-4 rounded-full ${plant.color} mr-2`}></span>
+                  {plant.name} ({plant.variety})
                 </button>
+              ))}
+            </div>
+          )}
+        </div>
+        
+        {/* Right content - Garden grid and layout controls */}
+        <div className="lg:col-span-3">
+          {/* Layout controls */}
+          <div className="bg-white p-4 rounded-lg shadow mb-6">
+            <div className="flex flex-wrap items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">Garden Layouts</h2>
+              
+              <button
+                className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600"
+                onClick={() => setShowNewLayoutForm(!showNewLayoutForm)}
+              >
+                {showNewLayoutForm ? 'Cancel' : 'Create New Layout'}
+              </button>
+            </div>
+            
+            {showNewLayoutForm && (
+              <form onSubmit={handleCreateLayout} className="mb-4 p-3 bg-gray-50 rounded">
+                <div className="mb-3">
+                  <label htmlFor="layoutName" className="block text-sm font-medium mb-1">Layout Name</label>
+                  <input
+                    type="text"
+                    id="layoutName"
+                    value={newLayoutName}
+                    onChange={(e) => setNewLayoutName(e.target.value)}
+                    className="w-full px-3 py-2 border rounded"
+                    placeholder="My Garden Layout"
+                    required
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <div>
+                    <label htmlFor="rows" className="block text-sm font-medium mb-1">Rows</label>
+                    <input
+                      type="number"
+                      id="rows"
+                      value={gridSize.rows}
+                      onChange={(e) => setGridSize(prev => ({ ...prev, rows: parseInt(e.target.value) || 5 }))}
+                      className="w-full px-3 py-2 border rounded"
+                      min="1"
+                      max="20"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="columns" className="block text-sm font-medium mb-1">Columns</label>
+                    <input
+                      type="number"
+                      id="columns"
+                      value={gridSize.columns}
+                      onChange={(e) => setGridSize(prev => ({ ...prev, columns: parseInt(e.target.value) || 5 }))}
+                      className="w-full px-3 py-2 border rounded"
+                      min="1"
+                      max="20"
+                    />
+                  </div>
+                </div>
+                
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
+                  className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
                 >
                   Create Layout
                 </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-      
-      {/* Plant Selection */}
-      <div className="mb-6">
-        <h3 className="text-lg font-semibold mb-3">Select Plant:</h3>
-        <div className="flex flex-wrap gap-2">
-          {plantTypes.map((plant) => (
-            <button
-              key={plant.id}
-              onClick={() => setSelectedPlant(plant.id)}
-              className={`px-4 py-2 rounded-lg ${plant.color} text-white transition-transform ${
-                selectedPlant === plant.id ? 'ring-2 ring-blue-500 scale-105' : ''
-              }`}
-            >
-              {plant.name}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Grid */}
-      <div className="overflow-x-auto mb-6">
-        <div className="inline-block border border-gray-200 rounded-lg">
-          {currentLayout.grid.map((row, y) => (
-            <div key={y} className="flex">
-              {row.map((cell, x) => {
-                const plant = cell.plantId ? getPlantById(cell.plantId) : null;
-                return (
-                  <div
-                    key={`${x}-${y}`}
-                    onClick={() => handleCellClick(x, y)}
-                    onMouseEnter={() => setHoveredCell({x, y})}
-                    onMouseLeave={() => setHoveredCell(null)}
-                    className={`
-                      w-12 h-12 border border-gray-200 cursor-pointer
-                      transition-all duration-200
-                      ${plant ? plant.color : 'hover:bg-gray-100'}
-                      ${hoveredCell?.x === x && hoveredCell?.y === y ? 'ring-2 ring-blue-300' : ''}
-                    `}
+              </form>
+            )}
+            
+            {layouts.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {layouts.map(layout => (
+                  <button
+                    key={layout.id}
+                    className={`px-3 py-1 rounded ${currentLayout?.id === layout.id ? 'bg-green-500 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}
+                    onClick={() => handleLayoutSelect(layout.id)}
                   >
-                    {cell.plantId && (
-                      <div className="w-full h-full flex items-center justify-center text-white text-xs">
-                        {getPlantById(cell.plantId)?.name[0]}
+                    {layout.name} ({layout.rows}x{layout.columns})
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-500">No layouts available. Create one to get started.</p>
+            )}
+          </div>
+          
+          {/* Garden grid */}
+          {currentLayout ? (
+            <div className="bg-white p-4 rounded-lg shadow">
+              <h3 className="text-lg font-semibold mb-4">{currentLayout.name}</h3>
+              
+              <div className="overflow-x-auto">
+                <div 
+                  className="grid gap-1" 
+                  style={{ 
+                    gridTemplateColumns: `repeat(${currentLayout.columns}, minmax(60px, 1fr))`,
+                    width: 'fit-content'
+                  }}
+                >
+                  {currentLayout.grid.map((row, y) => 
+                    row.map((cell, x) => {
+                      const plant = getPlantForCell(cell);
+                      return (
+                        <div
+                          key={`${y}-${x}`}
+                          className={`w-16 h-16 border flex items-center justify-center cursor-pointer hover:bg-gray-100 ${plant ? plant.color : 'bg-gray-50'}`}
+                          onClick={() => handleCellClick(x, y)}
+                          title={plant ? `${plant.name} (${plant.variety})` : 'Empty cell'}
+                        >
+                          {plant && (
+                            <span className="text-xs text-center overflow-hidden">
+                              {plant.name.substring(0, 3)}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+              
+              {/* Plant legend */}
+              {vegetablePlants.length > 0 && (
+                <div className="mt-6">
+                  <h4 className="text-sm font-semibold mb-2">Legend</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {vegetablePlants.map(plant => (
+                      <div key={plant.id} className="flex items-center text-xs">
+                        <span className={`inline-block w-3 h-3 rounded-full ${plant.color} mr-1`}></span>
+                        {plant.name}
                       </div>
-                    )}
+                    ))}
                   </div>
-                );
-              })}
+                </div>
+              )}
             </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Legend and Information */}
-      <div className="mt-6">
-        <h3 className="text-lg font-semibold mb-3">Plant Information:</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {plantTypes.map((plant) => (
-            <div key={plant.id} className="p-4 rounded-lg bg-gray-50">
-              <div className={`w-4 h-4 rounded-full ${plant.color} mb-2`}></div>
-              <h4 className="font-medium">{plant.name}</h4>
-              <p className="text-sm text-gray-600">Spacing: {plant.spacing} ft</p>
-              <p className="text-sm text-gray-600">Plant: {plant.plantingTime}</p>
-              <p className="text-sm text-gray-600">Harvest: {plant.harvestTime}</p>
+          ) : (
+            <div className="bg-white p-4 rounded-lg shadow text-center">
+              <p className="text-gray-500">
+                {layouts.length > 0 
+                  ? 'Select a layout to view and edit' 
+                  : 'Create a layout to get started with your garden planning'}
+              </p>
             </div>
-          ))}
+          )}
         </div>
       </div>
     </div>

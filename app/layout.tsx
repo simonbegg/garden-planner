@@ -1,6 +1,10 @@
 import './globals.css'
 import { Inter } from 'next/font/google'
 import Navigation from '../components/Navigation'
+import { PlantProvider } from '../context/PlantContext'
+import { GardenLayoutProvider } from '../context/GardenLayoutContext'
+import { AuthProvider } from '../context/AuthContext'
+import { ActivityProvider } from '../context/ActivityContext'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -17,10 +21,18 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <Navigation />
-        <div className="min-h-screen bg-gray-50">
-          {children}
-        </div>
+        <AuthProvider>
+          <PlantProvider>
+            <GardenLayoutProvider>
+              <ActivityProvider>
+                <Navigation />
+                <div className="min-h-screen bg-gray-50">
+                  {children}
+                </div>
+              </ActivityProvider>
+            </GardenLayoutProvider>
+          </PlantProvider>
+        </AuthProvider>
       </body>
     </html>
   )
