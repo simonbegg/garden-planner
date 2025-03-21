@@ -403,23 +403,22 @@ export const plantService = {
       
       // Transform application format to database format
       const dbPlant = {
-        user_id: user.id,
-        name: plant.name,
-        variety: plant.variety,
-        type: plant.type,
-        color: plant.color,
-        spacing: plant.spacing,
-        planting_time: plant.plantingTime,
-        harvest_time: plant.harvestTime,
-        planting_date: plant.plantingDate || null,
-        care_instructions: plant.careInstructions || [],
-        growth_stage: plant.growthStage || null
+        name: plant.name !== undefined ? plant.name : undefined,
+        variety: plant.variety !== undefined ? plant.variety : undefined,
+        type: plant.type !== undefined ? plant.type : undefined,
+        color: plant.color !== undefined ? plant.color : undefined,
+        spacing: plant.spacing !== undefined ? plant.spacing : undefined,
+        planting_time: plant.plantingTime !== undefined ? plant.plantingTime : undefined,
+        harvest_time: plant.harvestTime !== undefined ? plant.harvestTime : undefined,
+        planting_date: plant.plantingDate !== undefined ? plant.plantingDate : undefined,
+        care_instructions: plant.careInstructions !== undefined ? plant.careInstructions : undefined,
+        growth_stage: plant.growthStage !== undefined ? plant.growthStage : undefined
       };
       
       console.log('Inserting plant into database:', dbPlant);
       const { data, error } = await supabase
         .from('plants')
-        .insert(dbPlant)
+        .insert({ user_id: user.id, ...dbPlant })
         .select()
         .single();
       
@@ -502,18 +501,18 @@ export const plantService = {
     }
     
     // Transform application format to database format
-    const dbPlant: any = {};
-    
-    if (plant.name !== undefined) dbPlant.name = plant.name;
-    if (plant.variety !== undefined) dbPlant.variety = plant.variety;
-    if (plant.type !== undefined) dbPlant.type = plant.type;
-    if (plant.color !== undefined) dbPlant.color = plant.color;
-    if (plant.spacing !== undefined) dbPlant.spacing = plant.spacing;
-    if (plant.plantingTime !== undefined) dbPlant.planting_time = plant.plantingTime;
-    if (plant.harvestTime !== undefined) dbPlant.harvest_time = plant.harvestTime;
-    if (plant.plantingDate !== undefined) dbPlant.planting_date = plant.plantingDate;
-    if (plant.careInstructions !== undefined) dbPlant.care_instructions = plant.careInstructions;
-    if (plant.growthStage !== undefined) dbPlant.growth_stage = plant.growthStage;
+    const dbPlant = {
+      name: plant.name !== undefined ? plant.name : undefined,
+      variety: plant.variety !== undefined ? plant.variety : undefined,
+      type: plant.type !== undefined ? plant.type : undefined,
+      color: plant.color !== undefined ? plant.color : undefined,
+      spacing: plant.spacing !== undefined ? plant.spacing : undefined,
+      planting_time: plant.plantingTime !== undefined ? plant.plantingTime : undefined,
+      harvest_time: plant.harvestTime !== undefined ? plant.harvestTime : undefined,
+      planting_date: plant.plantingDate !== undefined ? plant.plantingDate : undefined,
+      care_instructions: plant.careInstructions !== undefined ? plant.careInstructions : undefined,
+      growth_stage: plant.growthStage !== undefined ? plant.growthStage : undefined
+    };
     
     const { data, error } = await supabase
       .from('plants')
@@ -644,9 +643,7 @@ export const gardenLayoutService = {
         name: layout.name,
         rows: layout.rows,
         columns: layout.columns,
-        grid: typeof layout.grid === 'string' 
-          ? JSON.parse(layout.grid) as GridCell[][] 
-          : layout.grid as unknown as GridCell[][]
+        grid: JSON.parse(JSON.stringify(layout.grid)) as GridCell[][]
       }));
       
       // Store in localStorage as backup
@@ -747,9 +744,7 @@ export const gardenLayoutService = {
         name: data.name,
         rows: data.rows,
         columns: data.columns,
-        grid: typeof data.grid === 'string' 
-          ? JSON.parse(data.grid) as GridCell[][] 
-          : data.grid as unknown as GridCell[][]
+        grid: JSON.parse(JSON.stringify(data.grid)) as GridCell[][]
       } as GardenLayout;
     } catch (error) {
       console.error(`Error retrieving garden layout with ID ${id}:`, error);
@@ -851,7 +846,7 @@ export const gardenLayoutService = {
         name: data.name,
         rows: data.rows,
         columns: data.columns,
-        grid: JSON.parse(data.grid) as GridCell[][]
+        grid: JSON.parse(JSON.stringify(data.grid)) as GridCell[][]
       } as GardenLayout;
     } catch (error) {
       console.error('Error creating garden layout:', error);
@@ -932,7 +927,7 @@ export const gardenLayoutService = {
       }
       
       // Prepare update data
-      const updateData: Record<string, string | number> = {};
+      const updateData: Record<string, unknown> = {};
       
       if (layout.name !== undefined) updateData.name = layout.name;
       if (layout.rows !== undefined) updateData.rows = layout.rows;
@@ -975,9 +970,7 @@ export const gardenLayoutService = {
         name: data.name,
         rows: data.rows,
         columns: data.columns,
-        grid: typeof data.grid === 'string' 
-          ? JSON.parse(data.grid) as GridCell[][] 
-          : data.grid as unknown as GridCell[][]
+        grid: JSON.parse(JSON.stringify(data.grid)) as GridCell[][]
       } as GardenLayout;
     } catch (error) {
       console.error(`Error updating garden layout with ID ${id}:`, error);

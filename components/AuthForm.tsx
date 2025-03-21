@@ -28,8 +28,8 @@ const AuthForm = () => {
         await userService.signIn(email, password);
         // Successful sign-in will redirect or update UI through Supabase auth state change
       }
-    } catch (err: any) {
-      setError(err.message || 'An error occurred during authentication');
+    } catch (err: Error | unknown) {
+      setError(err instanceof Error ? err.message : 'An error occurred during authentication');
     } finally {
       setLoading(false);
     }

@@ -7,7 +7,7 @@ interface PlantProfileProps extends Plant {
 }
 
 const PlantProfile: React.FC<PlantProfileProps> = ({
-  id,
+  // id, // Unused prop
   name,
   variety,
   type,

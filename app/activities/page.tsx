@@ -6,6 +6,7 @@ import { usePlants } from '../../context/PlantContext';
 import { useGardenLayouts } from '../../context/GardenLayoutContext';
 import ActivityForm from '../../components/ActivityForm';
 import Modal from '../../components/Modal';
+import Image from 'next/image';
 
 export default function ActivitiesPage() {
   const { activities, loading, error, deleteActivity } = useActivities();
@@ -211,9 +212,11 @@ export default function ActivitiesPage() {
               
               {activity.photoUrl && (
                 <div className="mt-3">
-                  <img 
+                  <Image 
                     src={activity.photoUrl} 
                     alt="Activity photo" 
+                    width={500}
+                    height={300}
                     className="w-full max-h-48 object-cover rounded"
                   />
                 </div>

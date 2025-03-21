@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useActivities, activityTypes, Activity } from '../context/ActivityContext';
 import { usePlants } from '../context/PlantContext';
 import { useGardenLayouts } from '../context/GardenLayoutContext';
@@ -50,8 +50,8 @@ const ActivityForm: React.FC<ActivityFormProps> = ({
         await addActivity(formData as Omit<Activity, 'id' | 'createdAt'>);
       }
       onClose();
-    } catch (err: any) {
-      setError(err.message || 'Failed to save activity');
+    } catch (err: Error | unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to save activity');
       setIsSubmitting(false);
     }
   };

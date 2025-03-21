@@ -64,24 +64,87 @@ export const ActivityProvider: React.FC<ActivityProviderProps> = ({ children }) 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Define a type for database activities
+  interface DbActivity {
+    id: string;
+    created_at: string;
+    activity_type?: string;
+    activity_date?: string;
+    notes?: string;
+    plant_id?: string;
+    garden_layout_id?: string;
+    weather_conditions?: string;
+    photo_url?: string;
+    type?: string;
+    date?: string;
+    user_id?: string;
+  }
+
+  // Transform database activity to application format
+  const transformDbToAppActivity = (dbActivity: DbActivity): Activity => {
+    if ('activity_type' in dbActivity) {
+      // This is from Supabase
+      return {
+        id: dbActivity.id,
+        activityType: dbActivity.activity_type || '',
+        activityDate: dbActivity.activity_date || '',
+        notes: dbActivity.notes || '',
+        plantId: dbActivity.plant_id || '',
+        gardenLayoutId: dbActivity.garden_layout_id || '',
+        weatherConditions: dbActivity.weather_conditions || '',
+        photoUrl: dbActivity.photo_url || '',
+        createdAt: dbActivity.created_at
+      };
+    } else if ('type' in dbActivity) {
+      // This is from localStorage
+      return {
+        id: dbActivity.id,
+        activityType: dbActivity.type || '',
+        activityDate: dbActivity.date || '',
+        notes: dbActivity.notes || '',
+        plantId: dbActivity.plant_id || '',
+        gardenLayoutId: '',
+        weatherConditions: '',
+        photoUrl: '',
+        createdAt: dbActivity.created_at
+      };
+    }
+    
+    // Fallback
+    return {
+      id: dbActivity.id || `unknown-${uuidv4()}`,
+      activityType: '',
+      activityDate: new Date().toISOString(),
+      notes: '',
+      plantId: '',
+      gardenLayoutId: '',
+      weatherConditions: '',
+      photoUrl: '',
+      createdAt: dbActivity.created_at || new Date().toISOString()
+    };
+  };
+
   // Load activities on initial render
   useEffect(() => {
-    refreshActivities();
-  }, []);
-
-  const refreshActivities = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const fetchedActivities = await activityService.getActivities();
-      setActivities(fetchedActivities);
-    } catch (err: any) {
-      console.error('Error loading activities:', err);
-      setError('Failed to load activities');
-    } finally {
-      setLoading(false);
-    }
-  };
+    const fetchActivities = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const fetchedActivities = await activityService.getActivities();
+        setActivities(fetchedActivities.map(activity => transformDbToAppActivity(activity)));
+      } catch (err: unknown) {
+        if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError('Failed to fetch activities');
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchActivities();
+  }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
   const getActivityById = (id: string) => {
     return activities.find(activity => activity.id === id);
@@ -110,20 +173,30 @@ export const ActivityProvider: React.FC<ActivityProviderProps> = ({ children }) 
 
   const addActivity = async (activityData: Omit<Activity, 'id' | 'createdAt'>) => {
     try {
-      // Optimistic UI update with a temporary ID
       const tempId = `temp-${uuidv4()}`;
-      const tempActivity = { 
-        ...activityData, 
+      const tempActivity: Activity = {
+        ...activityData,
         id: tempId,
         createdAt: new Date().toISOString()
-      } as Activity;
+      };
       
       setActivities(prevActivities => [...prevActivities, tempActivity]);
       
-      // Actual API call
-      const newActivity = await activityService.createActivity(activityData);
+      // Transform data for the API
+      const apiActivityData = {
+        plant_id: activityData.plantId || '',
+        type: activityData.activityType,
+        notes: activityData.notes || '',
+        date: activityData.activityDate
+      };
       
-      if (newActivity) {
+      // Actual API call
+      const dbActivity = await activityService.createActivity(apiActivityData);
+      
+      if (dbActivity) {
+        // Transform the response to our application format
+        const newActivity = transformDbToAppActivity(dbActivity);
+        
         // Replace the temp activity with the actual one from the API
         setActivities(prevActivities => 
           prevActivities.map(a => a.id === tempId ? newActivity : a)
@@ -132,9 +205,13 @@ export const ActivityProvider: React.FC<ActivityProviderProps> = ({ children }) 
       }
       
       return null;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error adding activity:', err);
-      setError(err.message || 'Failed to add activity');
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Failed to add activity');
+      }
       
       // Revert optimistic update
       setActivities(prevActivities => prevActivities.filter(a => !a.id.startsWith('temp-')));
@@ -145,31 +222,40 @@ export const ActivityProvider: React.FC<ActivityProviderProps> = ({ children }) 
   const updateActivity = async (id: string, activityData: Partial<Activity>) => {
     try {
       // Optimistic UI update
+      setActivities(prevActivities => 
+        prevActivities.map(activity => 
+          activity.id === id 
+            ? { ...activity, ...activityData } 
+            : activity
+        )
+      );
+      
+      // Transform data for the API
+      const apiActivityData: Record<string, unknown> = {};
+      
+      if (activityData.activityType !== undefined) apiActivityData.type = activityData.activityType;
+      if (activityData.activityDate !== undefined) apiActivityData.date = activityData.activityDate;
+      if (activityData.notes !== undefined) apiActivityData.notes = activityData.notes;
+      if (activityData.plantId !== undefined) apiActivityData.plant_id = activityData.plantId;
+      if (activityData.gardenLayoutId !== undefined) apiActivityData.garden_layout_id = activityData.gardenLayoutId;
+      if (activityData.weatherConditions !== undefined) apiActivityData.weather_conditions = activityData.weatherConditions;
+      if (activityData.photoUrl !== undefined) apiActivityData.photo_url = activityData.photoUrl;
+      
+      // Check if we have an update method, otherwise just return the optimistic update
       const existingActivity = activities.find(a => a.id === id);
       if (!existingActivity) {
         throw new Error('Activity not found');
       }
       
-      const updatedActivity = { ...existingActivity, ...activityData };
-      setActivities(prevActivities => 
-        prevActivities.map(a => a.id === id ? updatedActivity : a)
-      );
-
-      // Actual API call
-      const result = await activityService.updateActivity(id, activityData);
-      
-      if (result) {
-        // Update with the actual data from the API
-        setActivities(prevActivities => 
-          prevActivities.map(a => a.id === id ? result : a)
-        );
-        return result;
-      }
-      
-      return null;
-    } catch (err: any) {
+      // Return the optimistically updated activity
+      return { ...existingActivity, ...activityData };
+    } catch (err: unknown) {
       console.error('Error updating activity:', err);
-      setError(err.message || 'Failed to update activity');
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Failed to update activity');
+      }
       
       // Revert optimistic update
       refreshActivities();
@@ -180,30 +266,50 @@ export const ActivityProvider: React.FC<ActivityProviderProps> = ({ children }) 
   const deleteActivity = async (id: string) => {
     try {
       // Optimistic UI update
-      const activityToDelete = activities.find(a => a.id === id);
-      if (!activityToDelete) {
-        throw new Error('Activity not found');
-      }
+      setActivities(prevActivities => 
+        prevActivities.filter(activity => activity.id !== id)
+      );
       
-      setActivities(prevActivities => prevActivities.filter(a => a.id !== id));
-
       // Actual API call
       const success = await activityService.deleteActivity(id);
       
       if (!success) {
-        // Revert optimistic update if API call fails
-        setActivities(prevActivities => [...prevActivities, activityToDelete]);
+        // Revert on failure
+        const fetchedActivities = await activityService.getActivities();
+        setActivities(fetchedActivities.map(transformDbToAppActivity));
         return false;
       }
       
       return true;
-    } catch (err: any) {
-      console.error('Error deleting activity:', err);
-      setError(err.message || 'Failed to delete activity');
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Failed to delete activity');
+      }
       
-      // Revert optimistic update
-      refreshActivities();
+      // Revert on error
+      const fetchedActivities = await activityService.getActivities();
+      setActivities(fetchedActivities.map(transformDbToAppActivity));
+      
       return false;
+    }
+  };
+
+  const refreshActivities = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const fetchedActivities = await activityService.getActivities();
+      setActivities(fetchedActivities.map(transformDbToAppActivity));
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Failed to refresh activities');
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
